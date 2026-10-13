@@ -1,0 +1,15 @@
+# Developer tooling and the web gallery remain in the GitHub repository.
+preview/
+tool/
+
+# Local and generated files.
+.dart_tool/
+build/
+coverage/
+.idea/
+*.iml
+*.log
+*.pyc
+**/__pycache__/
+.pub/
+pubspec.lock

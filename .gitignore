@@ -1,0 +1,28 @@
+.dart_tool/
+.packages
+.pub/
+build/
+coverage/
+*.iml
+.idea/
+*.log
+.flutter-plugins
+.flutter-plugins-dependencies
+**/android/local.properties
+**/android/key.properties
+**/android/.gradle/
+**/ios/Pods/
+**/macos/Pods/
+
+# ---------- web-only preview ----------
+preview/android/
+preview/ios/
+preview/linux/
+preview/macos/
+preview/windows/
+preview/build/
+
+# ---------- package development ----------
+*.pyc
+**/__pycache__/
+pubspec.lock

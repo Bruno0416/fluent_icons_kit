@@ -1,0 +1,34 @@
+name: fluent_icons_kit
+description: Microsoft Fluent UI icons for Flutter with simple Line and Filled accessors, without size suffixes.
+version: 0.1.1
+repository: https://github.com/Bruno0416/fluent_icons_kit
+homepage: https://github.com/Bruno0416/fluent_icons_kit
+issue_tracker: https://github.com/Bruno0416/fluent_icons_kit/issues
+topics:
+  - icons
+  - fluent
+  - icon-font
+  - flutter
+  - ui
+
+environment:
+  sdk: ^3.13.4
+  flutter: '>=3.47.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  fonts:
+    - family: FluentKitLine
+      fonts:
+        - asset: assets/fonts/FluentKitLine.ttf
+    - family: FluentKitFilled
+      fonts:
+        - asset: assets/fonts/FluentKitFilled.ttf

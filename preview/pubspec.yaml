@@ -1,0 +1,21 @@
+name: fluent_icons_preview
+description: Web-only gallery for exploring Fluent Icons Kit Line and Filled icons.
+version: 0.1.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  fluent_icons_kit:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
