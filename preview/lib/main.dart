@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'generated_catalog.dart';
+import 'icon_diagnostics.dart';
 
 void main() => runApp(const FluentPreviewApp());
 
@@ -66,6 +67,7 @@ class _PreviewHomeState extends State<PreviewHome> {
   String _search = '';
   _PreviewVariant _variant = _PreviewVariant.compare;
   double _iconSize = 28;
+  bool _showAlignmentGrid = false;
 
   @override
   void initState() {
@@ -151,6 +153,14 @@ class _PreviewHomeState extends State<PreviewHome> {
     );
   }
 
+  // ---------- vista del icono ----------
+
+  Widget _galleryGlyph(IconData data, Color color) {
+    final icon = Icon(data, size: _iconSize, color: color);
+    if (!_showAlignmentGrid) return icon;
+    return AlignmentGuideBox(child: icon);
+  }
+
   // ---------- galeria ----------
 
   @override
@@ -172,6 +182,12 @@ class _PreviewHomeState extends State<PreviewHome> {
       appBar: AppBar(
         title: const Text('Fluent Icons Kit'),
         actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const IconDiagnosticsPage()),
+            ),
+            child: const Text('Alignment lab'),
+          ),
           IconButton(
             tooltip: widget.isDark ? 'Light theme' : 'Dark theme',
             onPressed: widget.onToggleTheme,
@@ -240,6 +256,13 @@ class _PreviewHomeState extends State<PreviewHome> {
                           onChanged: (value) => setState(() => _iconSize = value),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      FilterChip(
+                        label: const Text('48px alignment grid'),
+                        selected: _showAlignmentGrid,
+                        onSelected: (value) =>
+                            setState(() => _showAlignmentGrid = value),
+                      ),
                     ],
                   ),
                 ),
@@ -277,12 +300,12 @@ class _PreviewHomeState extends State<PreviewHome> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   if (_variant != _PreviewVariant.filled && entry.line != null)
-                                    Icon(entry.line, size: _iconSize, color: scheme.onSurface),
+                                    _galleryGlyph(entry.line!, scheme.onSurface),
                                   if (_variant == _PreviewVariant.compare &&
                                       entry.line != null && entry.filled != null)
-                                    const SizedBox(width: 18),
+                                    SizedBox(width: _showAlignmentGrid ? 12 : 18),
                                   if (_variant != _PreviewVariant.line && entry.filled != null)
-                                    Icon(entry.filled, size: _iconSize, color: scheme.primary),
+                                    _galleryGlyph(entry.filled!, scheme.primary),
                                 ],
                               ),
                               const SizedBox(height: 12),

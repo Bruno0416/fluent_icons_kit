@@ -1,5 +1,4 @@
-library fluent_icons_kit;
-
+library;
 import 'package:flutter/widgets.dart';
 
 part 'src/generated/line_icons.g.dart';

@@ -17,7 +17,7 @@ Choose the display size with Flutter's `Icon(size: ...)` instead of choosing a s
 
 ## Installation
 
-Once published to pub.dev:
+From pub.dev:
 
 ```sh
 flutter pub add fluent_icons_kit
@@ -56,11 +56,11 @@ Every exported icon has one source design per style; this does **not** imply eve
 
 ## Web preview
 
-The gallery lives in [`preview/`](https://github.com/Bruno4016/fluent_icons_kit/tree/main/preview), and is intentionally web-only.
+The gallery lives in [`preview/`](https://github.com/Bruno0416/fluent_icons_kit/tree/main/preview), and is intentionally web-only. Its alignment diagnostics require the upstream Microsoft fonts for local comparison.
 
 ```sh
 # From the package root:
-bash tool/setup_preview.sh
+bash tool/setup_preview.sh ../fluentui-system-icons/fonts
 cd preview
 flutter run -d chrome
 ```
@@ -73,7 +73,7 @@ flutter run -d web-server --web-port 8080
 # Open http://localhost:8080
 ```
 
-See [preview/README.md](https://github.com/Bruno4016/fluent_icons_kit/blob/main/preview/README.md) for gallery features and local cleanup instructions.
+See [preview/README.md](https://github.com/Bruno0416/fluent_icons_kit/blob/main/preview/README.md) for gallery features and local cleanup instructions.
 
 ## Updating the icons from Microsoft
 
@@ -94,7 +94,7 @@ git clone --depth 1 https://github.com/microsoft/fluentui-system-icons.git ../fl
 Then regenerate and verify:
 
 ```sh
-python tool/normalize_icons.py --input ../fluentui-system-icons/assets
+python tool/normalize_icons.py --input ../fluentui-system-icons/assets --upstream-fonts ../fluentui-system-icons/fonts
 python tool/validate.py
 ```
 
@@ -102,10 +102,44 @@ The `--input` parameter must refer to an **existing** upstream `assets` director
 
 **Important:** Keep `tool/codepoints.json` in source control. It reserves assigned codepoints so updates do not renumber previously published icons. Inspect generated diffs before releasing a new version.
 
+## SVG-first font pipeline and alignment
+
+Fonts are rebuilt from the **selected original Microsoft SVG artwork**, keeping the drawing coordinates relative to each SVG `viewBox`. This avoids the glyph-placement errors that occur when copying normalized TrueType contours while retaining incompatible horizontal metrics. No manual or per-icon optical offsets are applied.
+
+The canonical sources live in `tool/source/svg/{line,filled}/`; `tool/manifest.json` records the chosen design sizes, while `tool/codepoints.json` preserves all previously published Unicode assignments. Microsoft's original TTF/JSON files provide upstream identifiers and font-wide vertical metrics, **not** the output glyph outlines.
+
+To rebuild and verify both fonts from the already-normalized SVGs:
+
+```sh
+# From the package root, with Python tooling installed:
+python -m pip install -r tool/requirements.txt
+bash tool/fix_font_alignment.sh ../fluentui-system-icons/fonts
+```
+
+To intentionally refresh the SVG catalog from the **same Microsoft checkout** as the official font metadata:
+
+```sh
+bash tool/fix_font_alignment.sh \
+  ../fluentui-system-icons/fonts \
+  ../fluentui-system-icons/assets
+```
+
+**Review generated codepoint and manifest diffs before committing** an upstream refresh. The published API must not be renumbered. The alignment report (`alignment_report.png`) is a local diagnostic and is not part of the published package. Asymmetric icon artwork does not necessarily have its optical center at the center of the box.
+
+The optional Flutter Web **Alignment Lab** compares original SVG, official Microsoft TTF, and generated Kit TTF side by side, using visible 48 × 48 boxes. It is development tooling and requires a local Microsoft checkout:
+
+```sh
+bash tool/setup_preview.sh ../fluentui-system-icons/fonts
+cd preview
+flutter run -d web-server --web-port 8081
+```
+
+See [docs/SVG_FONT_PIPELINE.md](docs/SVG_FONT_PIPELINE.md) for generation details and [tool/ICON_DIAGNOSTICS.md](tool/ICON_DIAGNOSTICS.md) for the diagnostic lab (the latter is included in the GitHub repository, not the pub.dev archive).
+
 ## Technical notes
 
 - Fonts are registered with `fontPackage: 'fluent_icons_kit'`, so application projects do not need to register these TTFs manually.
-- Shape outlines are converted to monochrome TTF glyphs; partial opacity and multicolor variants are not preserved.
+- Only monochrome official font glyphs are included; multicolor SVG variants are outside the scope of this package.
 - Icons marked as mirrored in the upstream metadata use `matchTextDirection: true` for RTL layouts.
 - Font tree-shaking in **release builds** has not yet been confirmed for the nested `FluentIcons.line.*`/`filled.*` accessors. Measure a release build before relying on reduced font size.
 
@@ -128,7 +162,7 @@ flutter test
 python tool/validate.py
 
 # Web preview: fluent_icons_kit/preview/
-bash tool/setup_preview.sh
+bash tool/setup_preview.sh ../fluentui-system-icons/fonts
 cd preview
 flutter analyze
 flutter test
@@ -144,8 +178,8 @@ Flutter may report newer versions of SDK-pinned transitive dependencies during `
 
 The package targets Dart `^3.13.4` and Flutter `>=3.47.0` as declared in its [pubspec.yaml](pubspec.yaml). Review the dry-run file list and warnings before using `dart pub publish` once the GitHub repository is available.
 
-Source code: <https://github.com/Bruno4016/fluent_icons_kit>
-Issues: <https://github.com/Bruno4016/fluent_icons_kit/issues>
+Source code: <https://github.com/Bruno0416/fluent_icons_kit>
+Issues: <https://github.com/Bruno0416/fluent_icons_kit/issues>
 
 ## License
 

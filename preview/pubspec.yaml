@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   fluent_icons_kit:
     path: ../
+  flutter_svg: ^2.2.1
 
 dev_dependencies:
   flutter_test:
@@ -19,3 +20,14 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/diagnostics/svg/line/
+    - assets/diagnostics/svg/filled/
+  fonts:
+    - family: FluentOfficialLine
+      fonts:
+        - asset: assets/diagnostics/fonts/FluentSystemIcons-Regular.ttf
+    - family: FluentOfficialFilled
+      fonts:
+        - asset: assets/diagnostics/fonts/FluentSystemIcons-Filled.ttf

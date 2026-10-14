@@ -13,3 +13,8 @@ coverage/
 **/__pycache__/
 .pub/
 pubspec.lock
+
+# Local font diagnostics and developer patches are not package assets.
+/alignment_report.png
+/*.patch
+/.venv/

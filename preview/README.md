@@ -7,7 +7,7 @@ A browser-based Flutter gallery for browsing all Line and Filled icons, searchin
 From the package root:
 
 ```sh
-bash tool/setup_preview.sh
+bash tool/setup_preview.sh ../fluentui-system-icons/fonts
 cd preview
 flutter run -d chrome
 ```
@@ -20,6 +20,12 @@ flutter run -d web-server --web-port 8080
 ```
 
 Open <http://localhost:8080> in your browser. You can also run `flutter run -d web-server --web-port 8080` from inside `preview/` after dependencies are installed.
+
+## Alignment diagnostics
+
+The **48px alignment grid** in the gallery overlays the icon box and center guides on both Line and Filled variants. The **Alignment Lab** compares original SVG, Microsoft's unmodified TTF, and the rebuilt Kit TTF at the same size. Both help identify baseline issues without modifying the artwork.
+
+`tool/setup_preview.sh` generates the diagnostic references using `../fluentui-system-icons/fonts` by default (or a directory passed as its first argument). Clone [Microsoft Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) alongside this repository before setting up the preview. Generated reference TTFs and SVGs under `preview/assets/diagnostics/` are local developer assets, not published package contents.
 
 ## Web-only structure
 
@@ -36,7 +42,7 @@ rm -rf preview/android
 The gallery includes its own widget tests. From the package root:
 
 ```sh
-bash tool/setup_preview.sh
+bash tool/setup_preview.sh ../fluentui-system-icons/fonts
 cd preview
 flutter analyze
 flutter test

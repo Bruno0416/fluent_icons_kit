@@ -26,3 +26,10 @@ preview/build/
 *.pyc
 **/__pycache__/
 pubspec.lock
+
+# ---------- generated icon diagnostics ----------
+/alignment_report.png
+/tool/font_geometry_report.json
+/preview/assets/diagnostics/
+/preview/lib/icon_diagnostics.g.dart
+/*.patch

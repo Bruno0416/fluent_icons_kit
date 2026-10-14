@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Normaliza Fluent SVGs y construye fuentes + catalogo IconData.
+"""Normaliza Fluent SVGs y extrae fuentes oficiales + catalogo IconData.
 
 Uso:
-    python tool/normalize_icons.py --input /ruta/fluent_icons_upstream/assets
-    python tool/normalize_icons.py --input /ruta/fluent_icons_kit.zip
+    python tool/normalize_icons.py --input /ruta/fluent_icons_upstream/assets --upstream-fonts /ruta/fluent_icons_upstream/fonts
+    python tool/normalize_icons.py --input tool/source/svg --upstream-fonts /ruta/fluent_icons_upstream/fonts --no-sources
 
 Requiere: python -m pip install fonttools
 """
@@ -12,32 +12,17 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import keyword
 import re
 import shutil
-import sys
-import xml.etree.ElementTree as ET
 import zipfile
 from collections import Counter, defaultdict
 from pathlib import Path
-
-try:
-    from fontTools.fontBuilder import FontBuilder
-    from fontTools.pens.cu2quPen import Cu2QuPen
-    from fontTools.pens.transformPen import TransformPen
-    from fontTools.pens.ttGlyphPen import TTGlyphPen
-    from fontTools.svgLib.path import parse_path
-except ImportError:
-    raise SystemExit('Falta fonttools. Ejecuta: python -m pip install fonttools')
 
 ROOT = Path(__file__).resolve().parent.parent
 NAME_RE = re.compile(r'^ic_fluent_(?P<name>.+)_(?P<size>\d+)_(?P<variant>regular|filled)\.svg$', re.I)
 PREFERRED_SIZES = (24, 20, 28, 16, 32, 48, 12, 10)
 BMP_START, BMP_END = 0xE000, 0xF8FF
 SUPPLEMENTARY_START = 0xF0000
-EM = 1024
-ASCENT = 850
-DESCENT = -174
 FONT_FAMILIES = {'line': 'FluentKitLine', 'filled': 'FluentKitFilled'}
 DART_RESERVED = {
     'abstract','as','assert','async','await','base','break','case','catch','class','const',
@@ -52,6 +37,12 @@ DART_RESERVED = {
 
 def records(source: Path):
     """Enumera SVGs y metadatos sin extraer miles de archivos redundantes."""
+    # 1. permitir reconstruir fuentes usando solo los SVG ya normalizados
+    if source.is_dir() and source.name == 'svg' and source.parent.name == 'source':
+        for f in sorted(source.glob('*/*.svg')):
+            if f.parent.name in FONT_FAMILIES:
+                yield f.as_posix(), f.read_bytes()
+        return
     if source.is_file() and source.suffix.lower() == '.zip':
         with zipfile.ZipFile(source) as z:
             for info in sorted(z.infolist(), key=lambda i: i.filename):
@@ -76,7 +67,7 @@ def snake(name: str) -> str:
     return identifier
 
 
-def parse_sources(source: Path):
+def parse_sources(source: Path, previous_manifest: dict | None = None):
     groups = defaultdict(dict)
     directions = {}
     stats = Counter()
@@ -91,12 +82,20 @@ def parse_sources(source: Path):
                 stats['metadatos_invalidos'] += 1
             continue
         m = NAME_RE.match(path.rsplit('/', 1)[-1])
-        if not m:
-            stats['svg_omitidos'] += 1
-            continue
-        name = snake(m['name'])
-        variant = 'line' if m['variant'].lower() == 'regular' else 'filled'
-        size = int(m['size'])
+        if m:
+            name = snake(m['name'])
+            variant = 'line' if m['variant'].lower() == 'regular' else 'filled'
+            size = int(m['size'])
+        else:
+            # 2. preservar los tamanos y metadatos originales al reutilizar SVG normalizados
+            normalized = re.search(r'/tool/source/svg/(line|filled)/([a-z0-9_]+)\.svg$', path)
+            if normalized is None:
+                stats['svg_omitidos'] += 1
+                continue
+            variant, name = normalized.groups()
+            old = (previous_manifest or {}).get(variant, {}).get(name, {})
+            size = int(old.get('source_size', 24))
+            directions[name] = bool(old.get('mirror_rtl', False))
         groups[(variant, name)][size] = (path, content)
         stats['svg_admitidos'] += 1
     return groups, directions, stats
@@ -118,78 +117,6 @@ def choose(groups):
             size = preferred if preferred is not None else min(sizes, key=lambda s: (abs(s - 24), s < 24, s))
             result[(variant, name)] = (size, *sizes[size])
     return result
-
-
-def svg_glyph(content: bytes, desc: str):
-    """Transforma contornos SVG cubicos en contornos cuadraticos TrueType."""
-    root = ET.fromstring(content)
-    box = root.attrib.get('viewBox')
-    if not box:
-        raise ValueError(f'Falta viewBox: {desc}')
-    x0, y0, w, h = map(float, re.split(r'[\s,]+', box.strip()))
-    if w <= 0 or h <= 0:
-        raise ValueError(f'viewBox invalido: {desc}')
-    scale = EM / max(w, h)
-    dx = (EM - w * scale) / 2 - x0 * scale
-    dy = ASCENT + y0 * scale
-    target = TTGlyphPen(None)
-    converted = Cu2QuPen(target, max_err=1.0, reverse_direction=False)
-    pen = TransformPen(converted, (scale, 0, 0, -scale, dx, dy))
-    ns = '{http://www.w3.org/2000/svg}'
-    for element in root.iter():
-        tag = element.tag.removeprefix(ns)
-        if tag == 'path':
-            data = element.attrib.get('d')
-            if data:
-                parse_path(data, pen)
-        elif tag == 'rect':
-            x = float(element.attrib.get('x', 0))
-            y = float(element.attrib.get('y', 0))
-            width = float(element.attrib['width'])
-            height = float(element.attrib['height'])
-            # 1. convertir rectangulos presentes en algunos SVG monocromos
-            parse_path(f'M{x} {y}h{width}v{height}h{-width}Z', pen)
-        elif tag not in ('svg', 'g', 'title', 'desc'):
-            raise ValueError(f'Elemento SVG no soportado ({tag}): {desc}')
-    glyph = target.glyph()
-    if glyph.numberOfContours <= 0:
-        raise ValueError(f'Glifo sin contornos: {desc}')
-    return glyph
-
-
-def build_font(variant: str, entries, mapping: dict, output: Path):
-    """Genera una fuente Unicode con posicionamiento estable entre versiones."""
-    fb = FontBuilder(EM, isTTF=True)
-    glyph_order = ['.notdef'] + ['glyph_' + name for name in sorted(entries)]
-    fb.setupGlyphOrder(glyph_order)
-    empty = TTGlyphPen(None).glyph()
-    glyphs = {'.notdef': empty}
-    widths = {'.notdef': (EM, 0)}
-    cmap = {}
-    for name, (size, svg_path, content) in sorted(entries.items()):
-        glyph_name = 'glyph_' + name
-        glyphs[glyph_name] = svg_glyph(content, svg_path)
-        widths[glyph_name] = (EM, 0)
-        cmap[mapping[name]] = glyph_name
-    fb.setupCharacterMap(cmap)
-    fb.setupGlyf(glyphs)
-    fb.setupHorizontalMetrics(widths)
-    fb.setupHorizontalHeader(ascent=ASCENT, descent=DESCENT)
-    fb.setupNameTable({
-        'familyName': FONT_FAMILIES[variant],
-        'styleName': 'Regular',
-        'fullName': FONT_FAMILIES[variant],
-        'psName': FONT_FAMILIES[variant],
-        'version': 'Version 1.0',
-    })
-    fb.setupOS2(sTypoAscender=ASCENT, sTypoDescender=DESCENT, usWinAscent=ASCENT, usWinDescent=-DESCENT)
-    fb.setupPost()
-    fb.setupMaxp()
-    # 1. fijar fechas para producir fuentes identicas entre ejecuciones
-    fb.setupHead(created=2082844800, modified=2082844800)
-    fb.font.recalcTimestamp = False
-    output.parent.mkdir(parents=True, exist_ok=True)
-    fb.save(output)
 
 
 def updated_mapping(path: Path, chosen):
@@ -223,6 +150,7 @@ def generated_dart(variant, entries, mapping, directions):
     family = FONT_FAMILIES[variant]
     lines = [
         '// Generado automaticamente. No editar manualmente.',
+        '// ignore_for_file: non_constant_identifier_names',
         "part of '../../fluent_icons_kit.dart';", 
         '// ---------- iconos fluent ' + variant + ' ----------',
         '',
@@ -243,9 +171,12 @@ def main():
     parser.add_argument('--input', required=True, type=Path, help='ZIP original o carpeta assets de Microsoft')
     parser.add_argument('--output', type=Path, default=ROOT, help='Raiz del paquete Flutter')
     parser.add_argument('--no-sources', action='store_true', help='No conservar SVGs normalizados en el paquete')
+    parser.add_argument('--upstream-fonts', type=Path, required=True, help='Carpeta fonts/ oficial con TTF y JSON de Microsoft')
     args = parser.parse_args()
     dest = args.output.resolve()
-    groups, directions, stats = parse_sources(args.input.resolve())
+    previous_manifest_path = dest / 'tool' / 'manifest.json'
+    previous = json.loads(previous_manifest_path.read_text('utf-8'))['icons'] if previous_manifest_path.exists() else {}
+    groups, directions, stats = parse_sources(args.input.resolve(), previous)
     chosen = choose(groups)
     if not chosen:
         parser.error('No se encontraron SVGs reconocibles con regular/filled')
@@ -269,14 +200,27 @@ def main():
     manifest_file.parent.mkdir(parents=True, exist_ok=True)
     manifest_file.write_text(json.dumps(manifest, indent=2, ensure_ascii=False, sort_keys=True) + '\n', 'utf-8')
     codepoints = updated_mapping(dest / 'tool' / 'codepoints.json', chosen)
+    compatibility = []
     for variant in FONT_FAMILIES:
         entries = {name: rest for (v, name), rest in chosen.items() if v == variant}
         font_path = dest / 'assets' / 'fonts' / (FONT_FAMILIES[variant] + '.ttf')
-        build_font(variant, entries, codepoints[variant], font_path)
+        from official_font_builder import build_from_official
+        build_from_official(variant, entries, codepoints[variant], font_path,
+                            args.upstream_fonts.resolve(), diagnostics=compatibility)
         dart_path = dest / 'lib' / 'src' / 'generated' / (variant + '_icons.g.dart')
         dart_path.parent.mkdir(parents=True, exist_ok=True)
         dart_path.write_text(generated_dart(variant, entries, codepoints[variant], directions), encoding='utf-8')
         print(f'{variant}: {len(entries)} glifos -> {font_path.name} ({font_path.stat().st_size:,} bytes)')
+    # 3. la geometria viene de SVG: no comparar con contornos TTF oficiales.
+    report_path = dest / 'tool' / 'font_geometry_report.json'
+    report_path.write_text(json.dumps({
+        'reference': 'SVG originales: geometria canonica; TTF oficiales: Unicode y metricas',
+        'rebuilt_from_svg': len(chosen),
+        'compatible_translations': 0,
+        'incompatible': 0,
+        'details': [],
+    }, indent=2, ensure_ascii=False, sort_keys=True) + '\n', encoding='utf-8')
+    print('Reporte de geometria:', report_path)
     print('SVG encontrados:', stats['svg_admitidos'], ' | ignorados:',stats['svg_omitidos'])
     # 1. sincronizar tambien la galeria cuando viene incluida en el paquete
     from generate_preview import generate

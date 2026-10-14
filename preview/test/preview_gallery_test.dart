@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluent_icons_preview/main.dart';
+import 'package:fluent_icons_preview/icon_diagnostics.dart';
 
 void main() {
   // ---------- pruebas de la galeria web ----------
@@ -15,6 +16,17 @@ void main() {
     expect(find.text('Line'), findsOneWidget);
     expect(find.text('Filled'), findsOneWidget);
     expect(find.text('Compare'), findsOneWidget);
+  });
+
+  testWidgets('la cuadricula muestra cajas de 48x48 sin offsets', (tester) async {
+    await tester.pumpWidget(const FluentPreviewApp());
+
+    expect(find.byType(AlignmentGuideBox), findsNothing);
+    await tester.tap(find.widgetWithText(FilterChip, '48px alignment grid'));
+    await tester.pump();
+
+    expect(find.byType(AlignmentGuideBox), findsWidgets);
+    expect(tester.getSize(find.byType(AlignmentGuideBox).first), const Size(48, 48));
   });
 
   testWidgets('permite introducir texto de busqueda', (tester) async {
